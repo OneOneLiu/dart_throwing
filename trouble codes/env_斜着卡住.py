@@ -41,10 +41,10 @@ class DartThrowingEnv:
         # info = p.getDynamicsInfo(self.DartId,-1)
         # changeDynamics of darts to make it graspable
         p.changeDynamics(self.DartId,-1, 
-                         mass = 0.05, 
+                         mass = 0.005, 
                          #  spinningFriction = 0.5,
-                         lateralFriction = 0.1,
-                         spinningFriction = 0.01,
+                         lateralFriction = 10,
+                         spinningFriction = 0.03,
                          rollingFriction = 0.0001,
                         #  contactStiffness = 100,
                         #  contactDamping = 0.01,
@@ -120,11 +120,11 @@ class DartThrowingEnv:
         self.robot.move_gripper(action[-1])
 
         # monitor dart pos ori
-        # pos, ori, ori_matrix, flag = self.get_dart_position()
-        # self.grasp_point_local = np.array([0,0,0.10,1])
-        # pos = ori_matrix.dot(self.grasp_point_local)
-        # print('dart pos:', pos)
-        # print('dart ori:', ori)
+        pos, ori, ori_matrix, flag = self.get_dart_position()
+        self.grasp_point_local = np.array([0,0,0.10,1])
+        pos = ori_matrix.dot(self.grasp_point_local)
+        print('dart pos:', pos)
+        print('dart ori:', ori)
 
         # monitor keyboard， press 'UP_ARROW' key to activate the following condition
         keys = p.getKeyboardEvents()
@@ -209,7 +209,7 @@ class DartThrowingEnv:
         prepare_position = (0.46760607975520074, 0.20855347918658368, 0.8391862909778522, 0.5232080357011903, -0.5222009852515903, -0.47666897655810203, 0.4757585198049762)
         # move robot to the throwing position
         throwing_position = (-0.224,0.224,1.424, -math.pi/2, 0, -math.pi/2)
-        self.move_smooth(throwing_position, steps= 30)
+        self.move_smooth(throwing_position)
 
         # read current joint 3 angle
         joint_id = 3
@@ -224,55 +224,28 @@ class DartThrowingEnv:
         for i in range(1000):
             p.setJointMotorControl2(self.robot.id, joint_id, p.POSITION_CONTROL, current_joint1 - i * math.pi / 1000,
                                         force=self.robot.joints[joint_id].maxForce, maxVelocity=self.robot.joints[joint_id].maxVelocity/3)
-            self.robot.move_gripper(0.03)
             p.stepSimulation()
-            
-            time.sleep(0.001)
         
         # end_pos, end_ori, end_RF, end_JMT, _, _,= p.getLinkState(self.robot.id, 7)
         
         # load dart
-        dartPos = (prepare_position[0] + 0.017, prepare_position[1] - 0.14, prepare_position[2]) # change this to load dart in the gripper
+        dartPos = (prepare_position[0] + 0.1, prepare_position[1] - 0.14, prepare_position[2]) # change this to load dart in the gripper
         dartOri = p.getQuaternionFromEuler((0, math.pi/2, math.pi))
         self.DartId = p.loadURDF('./urdf/dart.urdf', dartPos, dartOri, useFixedBase = 0)
 
-        # print(p.getDynamicsInfo(self.DartId, -1))
-        
-        p.changeDynamics(self.DartId,0, 
-                         mass = 0.005, 
-                         #  spinningFriction = 0.5,
-                         lateralFriction = 100,
-                         spinningFriction = 0.8,
-                         rollingFriction = 0.8,
-                        #  localInertiaDiagnoal = (0.1, 0.1, 0.1)
-                        #  contactStiffness = 100,
-                        #  contactDamping = 0.01,
-                         )
+        print(p.getDynamicsInfo(self.DartId, -1))
         # close gripper
-        for i in range(10):
+        for i in range(100):
             self.robot.move_gripper(0)
             for j in range(200):
                 p.stepSimulation()
-        
-        # throwing dart
-        for i in range(200):
-            print(p.getLinkState(self.DartId, 0, 1))
-            jointinfo = p.getJointState(self.robot.id, 3)
-            print(jointinfo[0])
-            if i > 10:
-                self.robot.move_gripper(0.085)
-            
-            if jointinfo[0] > 1.3:
-                p.setJointMotorControl2(self.robot.id, joint_id, p.VELOCITY_CONTROL, current_joint1,
-                                        force=self.robot.joints[joint_id].maxForce, targetVelocity = 0, maxVelocity=self.robot.joints[joint_id].maxVelocity*5)
-            else:
-                p.setJointMotorControl2(self.robot.id, joint_id, p.VELOCITY_CONTROL, current_joint1,
-                                        force=self.robot.joints[joint_id].maxForce, targetVelocity = self.robot.joints[joint_id].maxVelocity * 6, maxVelocity=self.robot.joints[joint_id].maxVelocity*5)
-            for j in range(5):
-                p.stepSimulation()
-                time.sleep(0.01)
-                
-            
+        for i in range(1000):
+            p.setJointMotorControl2(self.robot.id, joint_id, p.POSITION_CONTROL, current_joint1,
+                                        force=self.robot.joints[joint_id].maxForce, maxVelocity=self.robot.joints[joint_id].maxVelocity/3)
+            p.stepSimulation()
+        for i in range(300):
+            self.robot.move_gripper(0.050)
+            p.stepSimulation()
         joint_infos = []
         for i in range(7):
             print('Joint{}'.format(i))
@@ -280,11 +253,24 @@ class DartThrowingEnv:
             joint_infos.append(info[1])
 
         # load dart into the hand 
-        # if self.DartId:
-        #     p.removeBody(self.DartId)
+        if self.DartId:
+            p.removeBody(self.DartId)
         
+        dartPos = (0.0,-0.3,1) # change this to load dart in the gripper
+        dartOri = p.getQuaternionFromEuler((0, math.pi/2, 0))
+        self.DartId = p.loadURDF('./urdf/dart.urdf', dartPos, dartOri, useFixedBase = 1)
         # info = p.getDynamicsInfo(self.DartId,-1)
         # changeDynamics of darts to make it graspable
+        p.changeDynamics(self.DartId,-1, 
+                         mass = 0.005, 
+                         #  spinningFriction = 0.5,
+                         lateralFriction = 10,
+                         spinningFriction = 0.03,
+                         rollingFriction = 0.0001,
+                         localInertiaDiagnoal = (0.01, 0.01, 0.01)
+                        #  contactStiffness = 100,
+                        #  contactDamping = 0.01,
+                         )
         # robot move to the throwing position while holdeing the dart
         
         # release the dart at the throwing position

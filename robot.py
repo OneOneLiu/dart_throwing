@@ -95,7 +95,7 @@ class RobotBase(object):
             self.links.append(info)
         for i in [12, 17]:
             print(self.links[i])
-            p.changeDynamics(self.id, i, lateralFriction = 1.0)
+            p.changeDynamics(self.id, i, lateralFriction = 4.0)
         
     def __init_robot__(self):
         raise NotImplementedError
@@ -130,12 +130,17 @@ class RobotBase(object):
     def close_gripper(self):
         self.move_gripper(self.gripper_range[0])
 
-    def move_ee(self, action, control_method):
+    def move_ee(self, action, control_method, Quater = False):
         assert control_method in ('joint', 'end')
         if control_method == 'end':
-            x, y, z, roll, pitch, yaw = action
-            pos = (x, y, z)
-            orn = p.getQuaternionFromEuler((roll, pitch, yaw))
+            if not Quater:
+                x, y, z, roll, pitch, yaw = action
+                pos = (x, y, z)
+                orn = p.getQuaternionFromEuler((roll, pitch, yaw))
+            if Quater:
+                x, y, z, rx, ry, rz, w = action
+                pos = (x, y, z)
+                orn = rx, ry, rz, w
             joint_poses = p.calculateInverseKinematics(self.id, self.eef_id, pos, orn,
                                                        self.arm_lower_limits, self.arm_upper_limits, self.arm_joint_ranges, self.arm_rest_poses,
                                                        maxNumIterations=20)
@@ -198,5 +203,5 @@ class UR5Robotiq85(RobotBase):
         open_angle = 0.715 - math.asin((open_length - 0.010) / 0.1143)  # angle calculation
         # Control the mimic gripper joint(s)
         p.setJointMotorControl2(self.id, self.mimic_parent_id, p.POSITION_CONTROL, targetPosition=open_angle,
-                                force=self.joints[self.mimic_parent_id].maxForce, maxVelocity=self.joints[self.mimic_parent_id].maxVelocity)
+                                force=self.joints[self.mimic_parent_id].maxForce * 100, maxVelocity=self.joints[self.mimic_parent_id].maxVelocity*2)
 
