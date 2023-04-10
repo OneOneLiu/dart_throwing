@@ -12,25 +12,15 @@ p.setGravity(0, 0, -10)
 planeId = p.loadURDF("plane.urdf")
 
 # Load the dart model
-dartStartPos = [0, 0, 1]
-dartStartOrientation = p.getQuaternionFromEuler([0, 0, 0])
-dartId = p.loadURDF("./urdf/dart.urdf", dartStartPos, dartStartOrientation)
+model_path = "./urdf/dart.urdf"
+model_id = p.loadURDF(model_path)
 
-# Set the initial velocity and angle of the dart
-initial_velocity = 10
-launch_angle = math.pi / 4.0
+# Get the number of links in the model
+num_links = p.getNumBodies()
 
-# Calculate the initial velocity vector
-vx = initial_velocity * math.cos(launch_angle)
-vy = initial_velocity * math.sin(launch_angle)
-vz = 0
-
-# Apply the initial velocity to the dart
-p.resetBaseVelocity(dartId, [vx, vy, vz])
-
-# Simulate the motion of the dart
-for i in range(1000):
-    p.stepSimulation()
-    time.sleep(1.0/240.0)
-
-p.disconnect()
+# Loop through each link and get its information
+for i in range(num_links):
+    link_info = p.getBodyInfo(i)
+    link_name = link_info[0].decode("utf-8")
+    link_type = link_info[1]
+    print(f"Link {i} name: {link_name}, type: {link_type}")

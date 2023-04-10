@@ -203,5 +203,5 @@ class UR5Robotiq85(RobotBase):
         open_angle = 0.715 - math.asin((open_length - 0.010) / 0.1143)  # angle calculation
         # Control the mimic gripper joint(s)
         p.setJointMotorControl2(self.id, self.mimic_parent_id, p.POSITION_CONTROL, targetPosition=open_angle,
-                                force=self.joints[self.mimic_parent_id].maxForce * 100, maxVelocity=self.joints[self.mimic_parent_id].maxVelocity*2)
+                                force=self.joints[self.mimic_parent_id].maxForce * 10, maxVelocity=self.joints[self.mimic_parent_id].maxVelocity*2)
 

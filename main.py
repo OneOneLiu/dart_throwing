@@ -10,8 +10,7 @@ def user_control_demo():
                     (0, 0, 1),
                     0.1, 5, (320, 320), 40)
     camera = None
-    # robot = Panda((0, 0.5, 0), (0, 0, math.pi))
-    robot = UR5Robotiq85((0, 0.4, 0.63), (0, 0, 0))
+    robot = UR5Robotiq85((0, 0.4, 0.63), (0, 0, -1.57))
     env = DartThrowingEnv(robot, camera, vis=True)
 
     env.reset()
