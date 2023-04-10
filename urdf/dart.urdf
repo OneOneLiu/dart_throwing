@@ -15,7 +15,8 @@
 				<cylinder radius="0.008" length="0.22"/>
 				<origin xyz="0.0 0.0 0" rpy="0.0 0.0 0.0" />
 			</geometry>
-		<origin xyz="0,0,0.2" rpy="0 0 0" /></collision>
+			<origin xyz="0 0 0" rpy="0 0 0" />
+		</collision>
 		<inertial>
 			<mass value="1.0" />
 			<inertia ixx="10" ixy="0.0" ixz="0.0" iyy="10" iyz="0.0" izz="10" />
