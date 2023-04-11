@@ -8,6 +8,7 @@ import pybullet_data
 from collections import namedtuple
 from attrdict import AttrDict
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 class DartThrowingEnv:
     SIMULATION_STEP_DELAY = 1 / 240.
@@ -140,33 +141,9 @@ class DartThrowingEnv:
         #         self.robot.reset()
 
         ############ RL part code ################
-        
-        # reset robot position
-        reset_position = (np.pi/2, -np.pi/2, np.pi/2, 0, np.pi/2, 0)
-        for i, joint_id in enumerate(self.robot.arm_controllable_joints):
-            p.setJointMotorControl2(self.robot.id, joint_id, p.POSITION_CONTROL, reset_position[i],
-                                    force=self.robot.joints[joint_id].maxForce, maxVelocity=self.robot.joints[joint_id].maxVelocity)
-        self.robot.move_gripper(0.04)
-        for _ in range(480):  # Wait for a few steps
-            self.step_simulation()
-        # randomly load dartboard
-        # load dartboard
-        # dartBoardPos = (-1.8,0,1.5) # change this to load dartboard in the gripper
-        if self.DartBoardId:
-            p.removeBody(self.DartBoardId)
-        distance = random.randint(5,40)
-        dartBoardPos = (-distance/10.0,0.5,1.4) # change this to load dartboard in the gripper
-        dartBoardOri = p.getQuaternionFromEuler((0, 0, -math.pi/2))
-        self.DartBoardId = p.loadURDF('./urdf/dartboard.urdf',dartBoardPos, dartBoardOri, useFixedBase = 1)
-        # TODO:change texture of the dartboard
-        texUid = p.loadTexture("tex256.png") 
-        p.changeVisualShape(self.DartBoardId, -1, textureUniqueId=texUid)
 
-        # define agent action space (velocity range)
-        velocity_range = np.linspace(0.5,15.5,45)
-        throwing_velocity = np.random.choice(velocity_range,1)
+        self.RL_code()
 
-        self.throw_dart_new(throwing_velocity)
         ############ RL part code ################
         for _ in range(120):  # Wait for a few steps
             self.step_simulation()
@@ -174,6 +151,76 @@ class DartThrowingEnv:
 
         return self.get_observation()
     
+    def RL_code(self, episodes = 35):
+        # define states
+        distances = np.linspace(0.5,4,10)
+        # define agent action space (velocity range)
+        velocity_range = np.linspace(0.5,15.5,30)
+
+        # Initialize Q-table with zeros
+        Q_table = np.zeros([distances.shape[0], velocity_range.shape[0]])
+        lr = 0.8
+
+        figure, ax = plt.subplots()
+        im = ax.imshow(Q_table, cmap='viridis')
+        last_name = 'q_table_5_reward_-18.0.npy'
+        for epoch in range(6,1000):
+            Q_table = np.load(last_name)
+            rewards = 0
+            for eposide in range(episodes):
+                # reset robot position
+                reset_position = (np.pi/2, -np.pi/2, np.pi/2, 0, np.pi/2, 0)
+                for i, joint_id in enumerate(self.robot.arm_controllable_joints):
+                    p.setJointMotorControl2(self.robot.id, joint_id, p.POSITION_CONTROL, reset_position[i],
+                                            force=self.robot.joints[joint_id].maxForce, maxVelocity=self.robot.joints[joint_id].maxVelocity)
+                self.robot.move_gripper(0.04)
+                for _ in range(480):  # Wait for a few steps
+                    self.step_simulation()
+
+                # load dartboard
+                if self.DartBoardId:
+                    p.removeBody(self.DartBoardId)
+                    p.removeBody(self.DartId)
+                    # distance = np.random.choice(distances,1)
+                    distance_index = random.randint(0,len(distances) - 1)
+                    dartBoardPos = (-distances[distance_index],0.5,1.4) # change this to load dartboard in the gripper
+                    dartBoardOri = p.getQuaternionFromEuler((0, 0, -math.pi/2))
+                    self.DartBoardId = p.loadURDF('./urdf/dartboard.urdf',dartBoardPos, dartBoardOri, useFixedBase = 1)
+                    # TODO:change texture of the dartboard
+                    texUid = p.loadTexture("tex256.png") 
+                    p.changeVisualShape(self.DartBoardId, -1, textureUniqueId=texUid)
+                # choose action with epsilon-greedy policy
+                throwing_velocity_index = np.argmax(Q_table[distance_index,:])
+                if np.random.uniform(0,1) < 0.8:
+                    throwing_velocity = np.random.choice(velocity_range,1)
+                    print('random')
+                else:    
+                    throwing_velocity = velocity_range[throwing_velocity_index]
+                # step (throwing_dart)
+                dart_trajectories = self.throw_dart_new(throwing_velocity)
+                trajectory_distances = [np.linalg.norm(dart_trajectory - dartBoardPos) for dart_trajectory in dart_trajectories]
+                min_distance = np.min(trajectory_distances)
+                if min_distance < 0.01:
+                    reward = 10
+                elif min_distance < 0.05:
+                    reward = 1.0
+                elif min_distance < 0.3:
+                    reward = 0.5
+                elif min_distance > 1:
+                    reward = -1.0
+                else:
+                    reward = -0.5
+                Q_table[distance_index, throwing_velocity_index]  += lr * reward # there is no need to calculate the next step, because only one step
+                rewards += reward
+                print('episodes:{}, distance:{}, velocity:{}, min_distance:{},reward:{}'.format(eposide, distances[distance_index], velocity_range[throwing_velocity_index], min_distance, reward))
+                im.set_data(Q_table)
+                figure.canvas.draw()
+                figure.canvas.flush_events()
+            print('total rewards:{}'.format(rewards))
+            np.save('q_table_{}_reward_{}.npy'.format(epoch,rewards),Q_table)
+            last_name = 'q_table_{}_reward_{}.npy'.format(epoch,rewards)
+
+
     def mock_ori(self):
         transformation_matrix = get_transformation_matrix()
         pass
@@ -224,18 +271,11 @@ class DartThrowingEnv:
 
         end_pos, end_ori, end_RF, end_JMT, _, _,= p.getLinkState(self.robot.id, 7)
         prepare_position = (*end_pos,*end_ori)
-        # # move robot to the throwing position
-        # throwing_position = (-0.224,0.224,1.424, -math.pi/2, 0, -math.pi/2)
-        # self.move_smooth(throwing_position, steps= 30)
 
         # read current joint 3 angle
         joint_id = 3
-        for i in range(7):
-            print('Joint{}'.format(i))
-            info = p.getJointState(self.robot.id, i)
-            print(info)
-            if i == joint_id:
-                current_joint1 = info[0]
+        info = p.getJointState(self.robot.id, joint_id)
+        current_joint1 = info[0]
         
         # end_pos, end_ori, end_RF, end_JMT, _, _,= p.getLinkState(self.robot.id, 7)
         
@@ -263,12 +303,12 @@ class DartThrowingEnv:
             for j in range(200):
                 p.stepSimulation()
             time.sleep(0.01)
-        
+        dart_trajectories = []
         # throwing dart
         for i in range(100):
-            print(p.getLinkState(self.DartId, 0, 1))
+            # print(p.getLinkState(self.DartId, 0, 1))
             jointinfo = p.getJointState(self.robot.id, 3)
-            print('angle of the robot 3rd joint:',jointinfo[0])
+            # print('angle of the robot 3rd joint:',jointinfo[0])
             if jointinfo[0] < 0.2:
                 self.robot.move_gripper(0.085)
                 p.setJointMotorControl2(self.robot.id, joint_id, p.VELOCITY_CONTROL, current_joint1 - math.pi,
@@ -279,13 +319,13 @@ class DartThrowingEnv:
             for j in range(5):
                 p.stepSimulation()
                 time.sleep(0.01)
+            # read and record dart pin trajectory
+            pos, ori, transformation_matrix, flag = self.get_dart_position()
+            pin_global = transformation_matrix.dot(np.array([0,0,-0.11,1]))[:3]
+            dart_trajectories.append(pin_global)
+            # 等会可以在这绘制调试的线
                 
-            
-        joint_infos = []
-        for i in range(7):
-            print('Joint{}'.format(i))
-            info = p.getJointState(self.robot.id, i)
-            joint_infos.append(info[1])
+        return dart_trajectories
 
     def throw_dart(self):
 

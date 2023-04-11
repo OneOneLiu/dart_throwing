@@ -1,26 +1,22 @@
-import pybullet as p
-import pybullet_data
-import time
-import math
+import numpy as np
+import matplotlib.pyplot as plt
+import glob
 
-# Connect to PyBullet and set up the simulation
+q_tables = glob.glob('q_table_*reward*')
+print(q_tables)
+q_table = np.load('q_table_0_reward_-20.0.npy')
 
+# Create the initial figure and image
+fig, ax = plt.subplots()
+im = ax.imshow(q_table, cmap='viridis')
 
-physicsClient = p.connect(p.GUI)
-p.setAdditionalSearchPath(pybullet_data.getDataPath())
-p.setGravity(0, 0, -10)
-planeId = p.loadURDF("plane.urdf")
-
-# Load the dart model
-model_path = "./urdf/dart.urdf"
-model_id = p.loadURDF(model_path)
-
-# Get the number of links in the model
-num_links = p.getNumBodies()
-
-# Loop through each link and get its information
-for i in range(num_links):
-    link_info = p.getBodyInfo(i)
-    link_name = link_info[0].decode("utf-8")
-    link_type = link_info[1]
-    print(f"Link {i} name: {link_name}, type: {link_type}")
+for q_table in q_tables:
+    # Update the image data
+    ax.set_title(q_table)
+    q_table = np.load(q_table)
+    im.set_data(q_table)
+    # Redraw the image on the plot
+    fig.canvas.draw()
+    
+    # Pause for a short time to allow the image to be displayed
+    plt.pause(5)
