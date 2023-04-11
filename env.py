@@ -31,10 +31,10 @@ class DartThrowingEnv:
         # dartBoardPos = (-1.8,0,1.5) # change this to load dartboard in the gripper
         dartBoardPos = (-2.37,0.5,1.4) # change this to load dartboard in the gripper
         dartBoardOri = p.getQuaternionFromEuler((0, 0, -math.pi/2))
-        DartBoardId = p.loadURDF('./urdf/dartboard.urdf',dartBoardPos, dartBoardOri, useFixedBase = 1)
+        self.DartBoardId = p.loadURDF('./urdf/dartboard.urdf',dartBoardPos, dartBoardOri, useFixedBase = 1)
         # TODO:change texture of the dartboard
         texUid = p.loadTexture("tex256.png") 
-        p.changeVisualShape(DartBoardId, -1, textureUniqueId=texUid)
+        p.changeVisualShape(self.DartBoardId, -1, textureUniqueId=texUid)
         # load dart
         dartPos = (0.0,-0.3,1) # change this to load dart in the gripper
         dartOri = p.getQuaternionFromEuler((0, math.pi/2, 0))
@@ -123,21 +123,51 @@ class DartThrowingEnv:
         control_method:  'end' for end effector position control
                          'joint' for joint position control
         """
-        assert control_method in ('joint', 'end')
-        self.robot.move_ee(action[:-1], control_method = 'joint')
-        self.robot.move_gripper(action[-1])
-
+        # assert control_method in ('joint', 'end')
+        # self.robot.move_ee(action[:-1], control_method = 'joint')
+        # self.robot.move_gripper(action[-1])
+        # for _ in range(960):  # Wait for a few steps
+        #     self.step_simulation()
         # monitor keyboard， press 'UP_ARROW' key to activate the following condition
-        keys = p.getKeyboardEvents()
-        for k, v in keys.items():
-            if (k == p.B3G_UP_ARROW and (v & p.KEY_IS_DOWN)):
-                # you can put your throwing code here to replace my function, self.approach_dart(), this function is used to approach and grasp dart, you don't need it #
-                # self.approach_dart()
-                self.throw_dart_new()
-                # you can put your throwing code here to replace my function, self.approach_dart(), this function is used to approach and grasp dart, you don't need it #
-            if (k == p.B3G_UP_ARROW and (v & p.KEY_WAS_RELEASED)):
-                self.robot.reset()
+        # keys = p.getKeyboardEvents()
+        # for k, v in keys.items():
+        #     if (k == p.B3G_UP_ARROW and (v & p.KEY_IS_DOWN)):
+        #         # you can put your throwing code here to replace my function, self.approach_dart(), this function is used to approach and grasp dart, you don't need it #
+        #         # self.approach_dart()
+        #         self.throw_dart_new()
+        #         # you can put your throwing code here to replace my function, self.approach_dart(), this function is used to approach and grasp dart, you don't need it #
+        #     if (k == p.B3G_UP_ARROW and (v & p.KEY_WAS_RELEASED)):
+        #         self.robot.reset()
 
+        ############ RL part code ################
+        
+        # reset robot position
+        reset_position = (np.pi/2, -np.pi/2, np.pi/2, 0, np.pi/2, 0)
+        for i, joint_id in enumerate(self.robot.arm_controllable_joints):
+            p.setJointMotorControl2(self.robot.id, joint_id, p.POSITION_CONTROL, reset_position[i],
+                                    force=self.robot.joints[joint_id].maxForce, maxVelocity=self.robot.joints[joint_id].maxVelocity)
+        self.robot.move_gripper(0.04)
+        for _ in range(480):  # Wait for a few steps
+            self.step_simulation()
+        # randomly load dartboard
+        # load dartboard
+        # dartBoardPos = (-1.8,0,1.5) # change this to load dartboard in the gripper
+        if self.DartBoardId:
+            p.removeBody(self.DartBoardId)
+        distance = random.randint(5,40)
+        dartBoardPos = (-distance/10.0,0.5,1.4) # change this to load dartboard in the gripper
+        dartBoardOri = p.getQuaternionFromEuler((0, 0, -math.pi/2))
+        self.DartBoardId = p.loadURDF('./urdf/dartboard.urdf',dartBoardPos, dartBoardOri, useFixedBase = 1)
+        # TODO:change texture of the dartboard
+        texUid = p.loadTexture("tex256.png") 
+        p.changeVisualShape(self.DartBoardId, -1, textureUniqueId=texUid)
+
+        # define agent action space (velocity range)
+        velocity_range = np.linspace(0.5,15.5,45)
+        throwing_velocity = np.random.choice(velocity_range,1)
+
+        self.throw_dart_new(throwing_velocity)
+        ############ RL part code ################
         for _ in range(120):  # Wait for a few steps
             self.step_simulation()
         p.removeAllUserDebugItems() # debug
@@ -190,7 +220,7 @@ class DartThrowingEnv:
             self.robot.move_ee(current_pos, 'end')
             self.step_simulation()
     
-    def throw_dart_new(self):
+    def throw_dart_new(self,velocity_coefficient):
 
         end_pos, end_ori, end_RF, end_JMT, _, _,= p.getLinkState(self.robot.id, 7)
         prepare_position = (*end_pos,*end_ori)
@@ -235,7 +265,6 @@ class DartThrowingEnv:
             time.sleep(0.01)
         
         # throwing dart
-        velocity_coefficient = float(input('input throwing speed'))
         for i in range(100):
             print(p.getLinkState(self.DartId, 0, 1))
             jointinfo = p.getJointState(self.robot.id, 3)
