@@ -127,13 +127,6 @@ class DartThrowingEnv:
         self.robot.move_ee(action[:-1], control_method = 'joint')
         self.robot.move_gripper(action[-1])
 
-        # monitor dart pos ori
-        # pos, ori, ori_matrix, flag = self.get_dart_position()
-        # self.grasp_point_local = np.array([0,0,0.10,1])
-        # pos = ori_matrix.dot(self.grasp_point_local)
-        # print('dart pos:', pos)
-        # print('dart ori:', ori)
-
         # monitor keyboard， press 'UP_ARROW' key to activate the following condition
         keys = p.getKeyboardEvents()
         for k, v in keys.items():
@@ -176,11 +169,6 @@ class DartThrowingEnv:
         robot_pos = [pts_a[0] , pts_a[1], 1.0, rx, ry, rz] # 等会改回来
         # self.move_smooth([*robot_pos[:3], 0,0,0])
         self.move_smooth(robot_pos)
-        # self.move_smooth(robot_pos)
-        # for i in range(1000):  # Wait for a few steps
-        #     if i % 10 == 0:
-        #         self.robot.move_ee(robot_pos, 'end')
-        #     self.step_simulation()
         end_pos, end_ori, end_RF, end_JMT, _, _,= p.getLinkState(self.robot.id, 7)
         print('Robot pos:', end_pos)
         print('Robot ori:', end_ori)
@@ -201,16 +189,6 @@ class DartThrowingEnv:
         for _ in range(600):  # Wait for a few steps
             self.robot.move_ee(current_pos, 'end')
             self.step_simulation()
-
-        # # move to certain position
-        # for _ in range(240):  # Wait for a few steps
-        #     self.robot.move_ee(current_pos, 'end')
-        #     self.step_simulation()
-
-        # open gripper
-        # for _ in range(240):  # Wait for a few steps
-        #     self.robot.move_gripper(0.085)
-        #     self.step_simulation()
     
     def throw_dart_new(self):
 
@@ -257,7 +235,7 @@ class DartThrowingEnv:
             time.sleep(0.01)
         
         # throwing dart
-        velocity_coefficient = 3
+        velocity_coefficient = float(input('input throwing speed'))
         for i in range(100):
             print(p.getLinkState(self.DartId, 0, 1))
             jointinfo = p.getJointState(self.robot.id, 3)
@@ -279,16 +257,6 @@ class DartThrowingEnv:
             print('Joint{}'.format(i))
             info = p.getJointState(self.robot.id, i)
             joint_infos.append(info[1])
-
-        # load dart into the hand 
-        # if self.DartId:
-        #     p.removeBody(self.DartId)
-        
-        # info = p.getDynamicsInfo(self.DartId,-1)
-        # changeDynamics of darts to make it graspable
-        # robot move to the throwing position while holdeing the dart
-        
-        # release the dart at the throwing position
 
     def throw_dart(self):
 
@@ -366,16 +334,6 @@ class DartThrowingEnv:
             print('Joint{}'.format(i))
             info = p.getJointState(self.robot.id, i)
             joint_infos.append(info[1])
-
-        # load dart into the hand 
-        # if self.DartId:
-        #     p.removeBody(self.DartId)
-        
-        # info = p.getDynamicsInfo(self.DartId,-1)
-        # changeDynamics of darts to make it graspable
-        # robot move to the throwing position while holdeing the dart
-        
-        # release the dart at the throwing position
 
     def move_verify(self, target_position, steps = 50, ori_matrix = None):
         end_pos_s, end_ori_s, end_RF, end_JMT, _, _,= p.getLinkState(self.robot.id, 7)
